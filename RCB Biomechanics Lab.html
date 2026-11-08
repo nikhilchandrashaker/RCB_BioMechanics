@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RCB Biomechanics Lab</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37;--bat:#e0112f;--bowl:#f2f2f2;--wk:#d4af37;--ar:#8f8f8f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37;--bat:#e0112f;--bowl:#f2f2f2;--wk:#d4af37;--ar:#8f8f8f}}
+:root[data-theme="dark"]{--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37;--bat:#e0112f;--bowl:#f2f2f2;--wk:#d4af37;--ar:#8f8f8f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{margin:0;font-size:28px;color:var(--red);letter-spacing:.5px;border-bottom:3px solid var(--gold);padding-bottom:6px}h2{border-left:4px solid var(--red);padding-left:10px}h2{font-size:17px;margin:28px 0 10px}
+.sub{color:var(--mut);margin:4px 0 14px}
+.note{background:var(--card);border-left:4px solid var(--gold);padding:10px 14px;border-radius:6px;font-size:13px;color:var(--mut)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit;font-size:13px}
+button.on{background:var(--red);color:#fff;border-color:var(--red)}
+.chart{display:grid;gap:5px}
+.row{display:grid;grid-template-columns:130px 1fr 54px;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.row .t{height:16px;background:var(--card);border-radius:4px;overflow:hidden}
+.row .f{height:100%;border-radius:4px}
+.row.sel{font-weight:600}
+.card{background:var(--card);border-radius:10px;padding:16px;margin-top:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+.k{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+.k b{display:block;font-size:20px}.k span{font-size:12px;color:var(--mut)}
+label{font-size:13px;display:block;margin-top:8px}input[type=range]{width:100%}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;min-width:620px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-weight:600}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;color:#fff}
+</style></head><body><main>
+<h1>RCB Biomechanics Lab</h1>
+<p class="sub">41 Royal Challengers Bengaluru players across the 2026 squad, the 2025 title squad and the 2011–17 Kohli–de Villiers–Gayle core</p>
+<div class="note"><b>Read this first.</b> Public sources do not release measured joint-angle or bat-sensor data for IPL players. Every biomechanical value here is an <b>estimate</b> built from broadcast speed-gun readings, commonly reported action descriptions and role archetypes, each with a confidence tag. Treat it as a modeling framework to be replaced with tracking data (Hawk-Eye, Pitchvision, Catapult), not as measurements. Fields marked “?” are unverified.</div>
+
+<h2>1. Compare the squad</h2>
+<div class="bar" id="mode"></div>
+<div class="bar" id="eras"></div>
+<div class="chart" id="chart"></div>
+
+<h2>2. Player profile and hit-physics model</h2>
+<div class="card" id="detail"></div>
+
+<h2>3. Full dataset</h2>
+<div class="bar" id="filt"></div>
+<div class="tw"><table id="tbl"></table></div>
+
+<h2>Shoulder load model</h2>
+<p class="sub">The Shoulder Load Index (SLI) adds three sources, scaled so the squad maximum is 100: bowling = (release speed/143)² × action factor × balls bowled; batting = 0.35 × (bat speed/118)² × balls faced; fielding or keeping = per-throw weight × throws, with a 1.5× dive-and-gather factor for keepers. Fatigue then carries over between matches with F(t+1) = F(t)·e<sup>−4.5/3</sup> + load. Ranges are 5th–95th percentile from 2,000 Monte Carlo draws. Seasonal workloads are <b>assumptions</b> by role, and bands (Low, Moderate, High) are within-squad rankings, not clinical thresholds. The research paper and dataset sent with this page document every input.</p>
+<h2>Method</h2>
+<p class="sub">Ball exit speed uses a calibrated linear impact model: v<sub>out</sub> = 0.95·v<sub>bat</sub> + 0.25·v<sub>in</sub>, which folds in bat–ball restitution, mass ratio and off-centre contact losses. Carry assumes a 30° launch angle (adjustable) with a flat 28% drag reduction versus vacuum range. Calibrated so elite hitters land near 100–110 m, which matches typical IPL maximum sixes. Bowling load uses release speed as a proxy for kinetic-chain output; action class comes from reported mechanics. Next steps: ingest ball-by-ball data to correlate estimated mechanics with strike rate, economy and dismissal types.</p>
+
+<script>
+// n,role,bat,bowl,bs(kph est),arm,bt(kph est bat speed at impact),conf
+const P=[
+["Virat Kohli","BAT","R","",0,"",105,"M"],
+["Rajat Patidar","BAT","R","",0,"",110,"M"],
+["Devdutt Padikkal","BAT","L","",0,"",104,"M"],
+["Swastik Chikara","BAT","?","",0,"",100,"L"],
+["Phil Salt","WK","R","",0,"",115,"M"],
+["Jitesh Sharma","WK","R","",0,"",108,"M"],
+["Jordan Cox","WK","R","",0,"",108,"L"],
+["Tim David","BAT","R","",0,"",118,"M"],
+["Venkatesh Iyer","AR","L","RM",118,"Side-on, short run-up",106,"L"],
+["Krunal Pandya","AR","L","SLA",88,"Round, flat trajectory",100,"M"],
+["Romario Shepherd","AR","R","RFM",138,"Open chest, hit-the-deck",115,"M"],
+["Jacob Bethell","AR","L","SLA",84,"Classical high arm",106,"L"],
+["Swapnil Singh","AR","L","SLA",82,"Loopy, high arm",98,"L"],
+["Mangesh Yadav","AR","?","?",128,"Unverified",100,"L"],
+["Satvik Deswal","AR","?","?",0,"Unverified",98,"L"],
+["Kanishk Chouhan","AR","?","?",0,"Unverified",96,"L"],
+["Vihaan Malhotra","AR","?","?",0,"Unverified",98,"L"],
+["Vicky Ostwal","AR","L","SLA",80,"High arm, drift",92,"L"],
+["Josh Hazlewood","BOWL","R","RFM",138,"Tall, high arm, hit-the-deck",80,"H"],
+["Bhuvneshwar Kumar","BOWL","R","RFM",132,"Upright, wrist behind ball (swing)",85,"H"],
+["Yash Dayal","BOWL","L","LFM",136,"Left-arm, angle across RHB",88,"M"],
+["Nuwan Thushara","BOWL","R","RF",143,"Low slinging round-arm",78,"H"],
+["Jacob Duffy","BOWL","R","RFM",137,"Tall, high arm, seam",80,"M"],
+["Rasikh Salam","BOWL","R","RFM",136,"Skiddy, round-ish",82,"M"],
+["Suyash Sharma","BOWL","R","LB",85,"Wrist spin, quick through air",80,"M"]];
+const D=P.map(a=>({n:a[0],r:a[1],h:a[2],bw:a[3],bs:a[4],arm:a[5],bt:a[6],c:a[7],e:a[8]}));
+const EN={"26":"2026","25":"2025 title","H":"2011–17"};const inEra=p=>era=="ALL"||p.e.split(",").includes(era);
+const col={BAT:"var(--bat)",WK:"var(--wk)",AR:"var(--ar)",BOWL:"var(--bowl)"};
+const nm={BAT:"Batter",WK:"Keeper",AR:"All-rounder",BOWL:"Bowler"};
+const SH={"Virat Kohli": [0.0, 35.9, 27.2, 63.2, 5.8, 52.4, 78.0, "M"], "Rajat Patidar": [0.0, 35.5, 27.2, 62.7, 5.8, 52.6, 76.8, "M"], "Devdutt Padikkal": [0.0, 26.8, 27.2, 54.0, 5.0, 46.2, 64.9, "L"], "Swastik Chikara": [0.0, 5.2, 27.2, 32.4, 3.0, 31.0, 34.6, "L"], "Phil Salt": [0.0, 38.8, 40.8, 79.6, 7.3, 68.7, 95.1, "H"], "Jitesh Sharma": [0.0, 15.2, 40.8, 56.0, 5.1, 51.6, 62.1, "M"], "Jordan Cox": [0.0, 9.1, 40.8, 50.0, 4.6, 47.3, 53.9, "L"], "Tim David": [0.0, 14.5, 27.2, 41.7, 3.8, 37.5, 47.5, "L"], "Venkatesh Iyer": [10.6, 18.3, 27.2, 56.1, 5.2, 47.4, 67.6, "M"], "Krunal Pandya": [28.9, 6.5, 27.2, 62.6, 5.8, 52.1, 77.2, "M"], "Romario Shepherd": [33.0, 6.0, 27.2, 66.2, 6.1, 54.9, 81.8, "H"], "Jacob Bethell": [8.1, 11.0, 27.2, 46.3, 4.3, 40.8, 54.1, "L"], "Swapnil Singh": [10.2, 1.3, 27.2, 38.7, 3.6, 35.4, 43.3, "L"], "Mangesh Yadav": [20.8, 2.6, 27.2, 50.6, 4.7, 43.7, 59.9, "L"], "Satvik Deswal": [0.0, 1.9, 27.2, 29.1, 2.7, 28.6, 29.8, "L"], "Kanishk Chouhan": [0.0, 1.8, 27.2, 29.0, 2.7, 28.5, 29.8, "L"], "Vihaan Malhotra": [0.0, 1.9, 27.2, 29.1, 2.7, 28.6, 29.9, "L"], "Vicky Ostwal": [4.9, 0.6, 27.2, 32.6, 3.0, 31.1, 34.9, "L"], "Josh Hazlewood": [72.4, 0.3, 27.2, 100.0, 9.2, 78.3, 129.8, "H"], "Bhuvneshwar Kumar": [66.3, 0.4, 27.2, 93.9, 8.6, 74.0, 119.3, "H"], "Yash Dayal": [63.3, 0.4, 27.2, 90.9, 8.4, 72.3, 116.6, "H"], "Nuwan Thushara": [51.3, 0.3, 27.2, 78.9, 7.3, 63.4, 99.8, "H"], "Jacob Duffy": [35.7, 0.3, 27.2, 63.3, 5.8, 52.6, 77.0, "M"], "Rasikh Salam": [36.9, 0.4, 27.2, 64.5, 5.9, 53.9, 79.4, "M"], "Suyash Sharma": [24.7, 0.3, 27.2, 52.3, 4.8, 44.8, 62.9, "L"], "Liam Livingstone": [5.9, 20.6, 27.2, 53.8, 4.9, 46.2, 64.3, "L"], "Mayank Agarwal": [0.0, 13.0, 27.2, 40.3, 3.7, 36.5, 45.5, "L"], "Lungi Ngidi": [36.2, 0.2, 27.2, 63.6, 5.8, 52.7, 78.0, "M"], "Chris Gayle": [0.0, 32.7, 27.2, 59.9, 5.5, 50.3, 73.1, "M"], "AB de Villiers": [0.0, 34.5, 29.2, 63.6, 5.8, 54.0, 78.4, "M"], "KL Rahul": [0.0, 21.1, 27.2, 48.4, 4.5, 41.9, 57.3, "L"], "Shane Watson": [34.7, 19.0, 27.2, 80.9, 7.4, 65.6, 102.8, "H"], "Mitchell Starc": [41.7, 0.4, 27.2, 69.2, 6.4, 57.0, 86.6, "H"], "Yuzvendra Chahal": [25.7, 0.2, 27.2, 53.1, 4.9, 45.8, 63.8, "L"], "Vinay Kumar": [54.5, 0.3, 27.2, 82.1, 7.5, 65.6, 104.3, "H"], "Stuart Binny": [12.5, 7.1, 27.2, 46.7, 4.3, 41.0, 54.3, "L"], "Parthiv Patel": [0.0, 15.6, 40.8, 56.5, 5.2, 52.1, 63.1, "M"], "Mandeep Singh": [0.0, 9.8, 27.2, 37.0, 3.4, 34.1, 41.1, "L"], "Sarfaraz Khan": [0.0, 8.1, 27.2, 35.4, 3.3, 33.0, 38.6, "L"], "Travis Head": [0.0, 9.1, 27.2, 36.3, 3.3, 33.6, 40.2, "L"], "Washington Sundar": [22.0, 8.3, 27.2, 57.5, 5.3, 48.8, 69.9, "M"]};
+let mode="sl",filt="ALL",era="ALL",sel=D.find(p=>p.n=="Josh Hazlewood");
+const g=id=>document.getElementById(id);
+const out=(p,vin,ang)=>{const v=0.95*p.bt/3.6+0.25*vin/3.6;const d=0.72*v*v*Math.sin(2*ang*Math.PI/180)/9.81;return{v:v*3.6,d:d}};
+function btns(id,items,cur,fn){g(id).innerHTML="";items.forEach(([k,l])=>{const b=document.createElement("button");b.textContent=l;if(k==cur)b.className="on";b.onclick=()=>fn(k);g(id).appendChild(b)})}
+function chart(){
+ btns("eras",[["ALL","All eras"],["26","2026 squad"],["25","2025 title"],["H","2011–17 core"]],era,k=>{era=k;chart()});
+ btns("mode",[["sl","Shoulder load index"],["bt","Bat speed (kph)"],["bs","Bowl speed (kph)"],["pw","Max carry (m)"]],mode,k=>{mode=k;chart()});
+ const val=p=>mode=="sl"?SH[p.n][3]:mode=="pw"?out(p,135,30).d:p[mode];
+ const L=D.filter(p=>inEra(p)&&val(p)>0).sort((a,b)=>val(b)-val(a));const mx=Math.max(...L.map(val));
+ g("chart").innerHTML=L.map(p=>`<div class="row ${p==sel?"sel":""}" data-i="${D.indexOf(p)}"><span>${p.n}</span><div class="t"><div class="f" style="width:${val(p)/mx*100}%;background:${col[p.r]}"></div></div><span>${val(p).toFixed(0)}</span></div>`).join("");
+ g("chart").querySelectorAll(".row").forEach(r=>r.onclick=()=>{sel=D[r.dataset.i];chart();detail()});
+}
+function detail(a,b){
+ const p=sel,vin=a??135,ang=b??30,o=out(p,vin,ang);
+ g("detail").innerHTML=`<b style="font-size:18px">${p.n}</b> <span class="tag" style="background:${col[p.r]}">${nm[p.r]}</span> <span class="sub">Bats: ${p.h} · Bowls: ${p.bw||"–"} · Estimate confidence: ${p.c}</span>
+ <div class="grid">
+ <div class="k"><b>${p.bt}</b><span>est. bat speed at impact (kph)</span></div>
+ <div class="k"><b>${p.bs||"–"}</b><span>est. release speed (kph)</span></div>
+ <div class="k"><b>${o.v.toFixed(0)}</b><span>ball exit speed (kph)</span></div>
+ <div class="k"><b>${o.d.toFixed(0)} m</b><span>modeled carry</span></div>
+ <div class="k"><b>${SH[p.n][3]}</b><span>Shoulder Load Index (${SH[p.n][5]}–${SH[p.n][6]})</span></div>
+ <div class="k"><b>${({H:"High",M:"Moderate",L:"Low"})[SH[p.n][7]]}</b><span>relative shoulder band</span></div></div>
+ <div class="sub">Shoulder sources (index): bowling ${SH[p.n][0]} · batting ${SH[p.n][1]} · fielding/keeping ${SH[p.n][2]} · peak fatigue ${SH[p.n][4]}</div>
+ <div class="sub">Action: ${p.arm||"Not a regular bowler"}</div>
+ <label>Incoming ball speed: <b id="va">${vin}</b> kph<input id="vi" type="range" min="70" max="150" value="${vin}"></label>
+ <label>Launch angle: <b id="aa">${ang}</b>°<input id="ai" type="range" min="10" max="45" value="${ang}"></label>`;
+ g("vi").oninput=e=>{const x=+e.target.value,y=+g("ai").value;detail(x,y)};
+ g("ai").oninput=e=>{const y=+e.target.value,x=+g("vi").value;detail(x,y)};
+}
+function tbl(){
+ btns("filt",[["ALL","All"],["BAT","Batters"],["WK","Keepers"],["AR","All-rounders"],["BOWL","Bowlers"]],filt,k=>{filt=k;tbl()});
+ const L=D.filter(p=>filt=="ALL"||p.r==filt);
+ g("tbl").innerHTML="<tr><th>Player</th><th>Role</th><th>Bat</th><th>Bowl</th><th>Bat kph</th><th>Release kph</th><th>Action</th><th>Conf.</th><th>Era</th></tr>"+L.map(p=>`<tr><td>${p.n}</td><td>${nm[p.r]}</td><td>${p.h}</td><td>${p.bw||"–"}</td><td>${p.bt}</td><td>${p.bs||"–"}</td><td>${p.arm||"–"}</td><td>${p.c}</td><td>${p.e.split(",").map(x=>EN[x]).join(" · ")}</td></tr>`).join("");
+}
+chart();detail();tbl();
+</script></main></body></html>

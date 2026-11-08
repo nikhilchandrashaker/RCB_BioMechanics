@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RCB Shoulder Load Model</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37}}
+:root[data-theme="dark"]{--bg:#0d0d0d;--fg:#f2f2f2;--mut:#a8a8a8;--card:#1a1a1a;--line:#3a3a3a;--red:#e0112f;--gold:#d4af37}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{margin:0;font-size:28px;color:var(--red);border-bottom:3px solid var(--gold);padding-bottom:6px}
+h2{font-size:17px;margin:26px 0 10px;border-left:4px solid var(--red);padding-left:10px}
+.sub{color:var(--mut);font-size:13px}
+.note{background:var(--card);border-left:4px solid var(--gold);padding:10px 14px;border-radius:6px;font-size:13px;color:var(--mut);margin:12px 0}
+.card{background:var(--card);border-radius:10px;padding:16px}
+select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;width:100%}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;margin-top:10px}
+label{font-size:13px;display:block;margin-top:8px}label b{color:var(--gold)}
+input[type=range]{width:100%;accent-color:var(--red)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.k{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+.k b{display:block;font-size:22px}.k span{font-size:12px;color:var(--mut)}
+.stack{display:flex;height:22px;border-radius:5px;overflow:hidden;background:var(--bg);border:1px solid var(--line)}
+.leg{font-size:12px;color:var(--mut);margin-top:6px}.leg i{display:inline-block;width:10px;height:10px;margin:0 4px 0 10px;border-radius:2px}
+svg{width:100%;height:auto;display:block}
+.row{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center;font-size:12px;margin:3px 0;cursor:pointer}
+.row .t{height:14px;background:var(--bg);border-radius:4px;overflow:hidden}.row .f{height:100%}
+code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:12px}
+button{background:var(--red);color:#fff;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;margin-top:10px}
+</style></head><body><main>
+<h1>RCB Shoulder Load Model</h1>
+<p class="sub">41 RCB players: 2026 squad, 2025 title squad and 2011–17 core · adjust any input and watch the load and fatigue respond</p>
+<div class="note"><b>Estimates, not measurements.</b> Speeds are estimated from broadcast readings and role archetypes; seasonal balls, swings and throws are assumptions by role. The index is a relative within-sample ranking, not a clinical or injury-risk measure.</div>
+
+<h2>1. Pick a player and tweak the inputs</h2>
+<div class="card">
+<select id="sel"></select>
+<div class="ctl" id="ctl"></div>
+<button id="rst">Reset to base case</button>
+</div>
+
+<h2>2. Shoulder Load Index</h2>
+<div class="card">
+<div class="grid" id="kp"></div>
+<div class="stack" id="stk"></div>
+<div class="leg"><i style="background:var(--red)"></i>Bowling<i style="background:#f2f2f2"></i>Batting<i style="background:var(--gold)"></i>Fielding / keeping</div>
+</div>
+
+<h2>3. Fatigue across the season</h2>
+<div class="card"><svg id="fat" viewBox="0 0 640 260"></svg><div class="sub" id="fnote"></div></div>
+
+<h2>4. Squad ranking</h2>
+<div class="card" id="rank"></div>
+
+<h2>Model equations</h2>
+<div class="card sub">
+<p>Bowling load = <code>(release/143)² × action factor × balls bowled / 100</code></p>
+<p>Batting load = <code>0.35 × (bat speed/118)² × balls faced / 100</code></p>
+<p>Fielding load = <code>per-throw weight × keeper factor × throws / 100</code> (0.50 outfield, 0.25 keeper, keeper factor 1.5)</p>
+<p>All three are scaled so the sample's base-case maximum equals 100. Fatigue: <code>F(t+1) = F(t)·exp(−spacing/τ) + load per match</code>, with season load split over 14 base matches; extra playoff matches add exposure at the same per-match load. Bands: Low below the squad median, Moderate up to the 80th percentile, High above.</p>
+</div>
+
+<script>
+// name, role, release kph, bat kph, action factor, balls bowled, balls faced, throws, keeper factor, per-throw weight
+const P=[["Virat Kohli", "BAT", 0, 105, 1.0, 0, 500, 210, 1.0, 0.5], ["Rajat Patidar", "BAT", 0, 110, 1.0, 0, 450, 210, 1.0, 0.5], ["Devdutt Padikkal", "BAT", 0, 104, 1.0, 0, 380, 210, 1.0, 0.5], ["Swastik Chikara", "BAT", 0, 100, 1.0, 0, 80, 210, 1.0, 0.5], ["Phil Salt", "WK", 0, 115, 1.0, 0, 450, 420, 1.5, 0.25], ["Jitesh Sharma", "WK", 0, 108, 1.0, 0, 200, 420, 1.5, 0.25], ["Jordan Cox", "WK", 0, 108, 1.0, 0, 120, 420, 1.5, 0.25], ["Tim David", "BAT", 0, 118, 1.0, 0, 160, 210, 1.0, 0.5], ["Venkatesh Iyer", "AR", 118, 106, 1.0, 60, 250, 210, 1.0, 0.5], ["Krunal Pandya", "AR", 88, 100, 1.05, 280, 100, 210, 1.0, 0.5], ["Romario Shepherd", "AR", 138, 115, 1.05, 130, 70, 210, 1.0, 0.5], ["Jacob Bethell", "AR", 84, 106, 1.0, 90, 150, 210, 1.0, 0.5], ["Swapnil Singh", "AR", 82, 98, 1.0, 120, 20, 210, 1.0, 0.5], ["Mangesh Yadav", "AR", 128, 100, 1.0, 100, 40, 210, 1.0, 0.5], ["Satvik Deswal", "AR", 0, 98, 1.0, 0, 30, 210, 1.0, 0.5], ["Kanishk Chouhan", "AR", 0, 96, 1.0, 0, 30, 210, 1.0, 0.5], ["Vihaan Malhotra", "AR", 0, 98, 1.0, 0, 30, 210, 1.0, 0.5], ["Vicky Ostwal", "AR", 80, 92, 1.0, 60, 10, 210, 1.0, 0.5], ["Josh Hazlewood", "BOWL", 138, 80, 1.0, 300, 8, 210, 1.0, 0.5], ["Bhuvneshwar Kumar", "BOWL", 132, 85, 1.0, 300, 8, 210, 1.0, 0.5], ["Yash Dayal", "BOWL", 136, 88, 1.0, 270, 8, 210, 1.0, 0.5], ["Nuwan Thushara", "BOWL", 143, 78, 1.1, 180, 8, 210, 1.0, 0.5], ["Jacob Duffy", "BOWL", 137, 80, 1.0, 150, 8, 210, 1.0, 0.5], ["Rasikh Salam", "BOWL", 136, 82, 1.05, 150, 8, 210, 1.0, 0.5], ["Suyash Sharma", "BOWL", 85, 80, 1.0, 270, 8, 210, 1.0, 0.5], ["Liam Livingstone", "AR", 88, 120, 1.0, 60, 220, 210, 1.0, 0.5], ["Mayank Agarwal", "BAT", 0, 100, 1.0, 0, 200, 210, 1.0, 0.5], ["Lungi Ngidi", "BOWL", 138, 70, 1.0, 150, 5, 210, 1.0, 0.5], ["Chris Gayle", "BAT", 0, 112, 1.0, 0, 400, 210, 1.0, 0.5], ["AB de Villiers", "WK", 0, 115, 1.0, 0, 400, 300, 1.5, 0.25], ["KL Rahul", "BAT", 0, 104, 1.0, 0, 300, 210, 1.0, 0.5], ["Shane Watson", "AR", 135, 108, 1.0, 150, 250, 210, 1.0, 0.5], ["Mitchell Starc", "BOWL", 148, 82, 1.0, 150, 8, 210, 1.0, 0.5], ["Yuzvendra Chahal", "BOWL", 85, 60, 1.0, 280, 8, 210, 1.0, 0.5], ["Vinay Kumar", "BOWL", 128, 78, 1.05, 250, 8, 210, 1.0, 0.5], ["Stuart Binny", "AR", 128, 95, 1.0, 60, 120, 210, 1.0, 0.5], ["Parthiv Patel", "WK", 0, 98, 1.0, 0, 250, 420, 1.5, 0.25], ["Mandeep Singh", "BAT", 0, 100, 1.0, 0, 150, 210, 1.0, 0.5], ["Sarfaraz Khan", "BAT", 0, 102, 1.0, 0, 120, 210, 1.0, 0.5], ["Travis Head", "BAT", 0, 108, 1.0, 0, 120, 210, 1.0, 0.5], ["Washington Sundar", "AR", 85, 92, 1.0, 240, 150, 210, 1.0, 0.5]];
+const F=["name","role","rel","bat","af","balls","faced","throws","kf","pt"];
+const D=P.map(a=>Object.fromEntries(a.map((v,i)=>[F[i],v])));
+const nm={BAT:"Batter",WK:"Keeper",AR:"All-rounder",BOWL:"Bowler"};
+const raw=p=>({b:p.rel>0?Math.pow(p.rel/143,2)*p.af*p.balls/100:0,t:.35*Math.pow(p.bat/118,2)*p.faced/100,f:p.pt*p.kf*p.throws/100});
+const K=100/Math.max(...D.map(p=>{const r=raw(p);return r.b+r.t+r.f}));
+const tot=p=>{const r=raw(p);return(r.b+r.t+r.f)*K};
+const base=D.map(tot).sort((a,b)=>a-b);
+const q=f=>base[Math.floor(f*(base.length-1))];
+const band=v=>v>=q(.8)?"High":v>=q(.5)?"Moderate":"Low";
+const bcol={High:"var(--red)",Moderate:"var(--gold)",Low:"var(--fg)"};
+const S=[["rel","Release speed (kph)",0,150,1],["bat","Bat speed at impact (kph)",60,130,1],["af","Action factor",.9,1.2,.05],["balls","Balls bowled per season",0,400,5],["faced","Balls faced per season",0,600,5],["throws","Throws per season",0,500,10],["tau","Recovery time constant τ (days)",1,7,.5],["dt","Match spacing (days)",2,8,.5],["n","Matches played",14,17,1]];
+const $=id=>document.getElementById(id);
+let cur,st;
+function pick(i){cur=D[i];st={...cur,tau:3,dt:4.5,n:14};ctl();draw()}
+function ctl(){$("ctl").innerHTML=S.map(([k,l,a,b,s])=>`<label>${l}: <b id="v_${k}">${st[k]}</b><input type="range" id="r_${k}" min="${a}" max="${b}" step="${s}" value="${st[k]}"></label>`).join("");
+ S.forEach(([k])=>$("r_"+k).oninput=e=>{st[k]=+e.target.value;$("v_"+k).textContent=st[k];draw()})}
+function draw(){
+ const r=raw(st),b=r.b*K,t=r.t*K,f=r.f*K,T=b+t+f,bd=band(T);
+ $("kp").innerHTML=[[b.toFixed(1),"Bowling load"],[t.toFixed(1),"Batting load"],[f.toFixed(1),"Fielding / keeping"],[T.toFixed(1),"Shoulder Load Index"],[bd,"Relative band vs sample"]].map(([v,l],i)=>`<div class="k"><b style="${i==4?"color:"+bcol[bd]:""}">${v}</b><span>${l}</span></div>`).join("");
+ const w=x=>T>0?x/T*100:0;
+ $("stk").innerHTML=`<div style="width:${w(b)}%;background:var(--red)"></div><div style="width:${w(t)}%;background:#f2f2f2"></div><div style="width:${w(f)}%;background:var(--gold)"></div>`;
+ // fatigue
+ const L=T/14,pts=[];let x=0,mx=0;
+ for(let i=0;i<st.n;i++){x=x*Math.exp(-st.dt/st.tau)+L;pts.push(x);mx=Math.max(mx,x)}
+ const ref=Math.max(10,mx*1.15),X=i=>50+i*(560/16),Y=v=>220-v/ref*190;
+ let s=`<line x1="50" y1="220" x2="610" y2="220" stroke="var(--line)"/><line x1="50" y1="30" x2="50" y2="220" stroke="var(--line)"/>`;
+ for(let g=0;g<=4;g++){const v=ref*g/4;s+=`<text x="44" y="${Y(v)+4}" text-anchor="end" font-size="10" fill="var(--mut)">${v.toFixed(1)}</text>`}
+ pts.forEach((v,i)=>{s+=`<text x="${X(i)}" y="238" text-anchor="middle" font-size="10" fill="var(--mut)">${i+1}</text>`});
+ s+=`<polyline fill="none" stroke="var(--red)" stroke-width="3" points="${pts.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`+pts.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="var(--gold)"/>`).join("")+`<text x="330" y="256" text-anchor="middle" font-size="10" fill="var(--mut)">Match number</text>`;
+ $("fat").innerHTML=s;
+ const ss=1/(1-Math.exp(-st.dt/st.tau))*L;
+ $("fnote").textContent=`Peak fatigue index ${mx.toFixed(1)} after ${st.n} matches. Steady-state ceiling at this spacing: ${ss.toFixed(1)}.`;
+ // rank
+ const R=D.map(p=>[p.name,p===cur?T:tot(p)]).sort((a,b)=>b[1]-a[1]);
+ $("rank").innerHTML=R.map(([n,v])=>`<div class="row" data-n="${n}" style="${n==cur.name?"font-weight:700":""}"><span>${n}</span><div class="t"><div class="f" style="width:${Math.min(100,v)}%;background:${bcol[band(v)]}"></div></div><span>${v.toFixed(0)}</span></div>`).join("");
+ document.querySelectorAll("#rank .row").forEach(e=>e.onclick=()=>{const i=D.findIndex(p=>p.name==e.dataset.n);$("sel").value=i;pick(i);window.scrollTo({top:0,behavior:"smooth"})});
+}
+$("sel").innerHTML=D.map((p,i)=>`<option value="${i}">${p.name} (${nm[p.role]})</option>`).join("");
+$("sel").onchange=e=>pick(+e.target.value);
+$("rst").onclick=()=>pick(+$("sel").value);
+$("sel").value=18;pick(18);
+</script></main></body></html>
